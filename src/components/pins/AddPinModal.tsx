@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input, TextArea } from '@/components/ui/Input'
@@ -6,11 +7,15 @@ import { ImageUploader } from './ImageUploader'
 import { MusicInput } from '@/components/music/MusicInput'
 import { useAppStore } from '@/store/appStore'
 import { usePins } from '@/hooks/usePins'
-import type { SpotifyTrack, MusicLink } from '@/types'
+import { useFriends } from '@/hooks/useFriends'
+import { useAuth } from '@/hooks/useAuth'
+import type { SpotifyTrack, MusicLink, Profile } from '@/types'
 
 export function AddPinModal() {
   const { pendingLocation, setPendingLocation, setIsAddingPin } = useAppStore()
   const { createPin } = usePins()
+  const { user } = useAuth()
+  const { friends, fetchFriends } = useFriends()
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -20,9 +25,29 @@ export function AddPinModal() {
   const [images, setImages] = useState<File[]>([])
   const [spotifyTracks, setSpotifyTracks] = useState<SpotifyTrack[]>([])
   const [musicLinks, setMusicLinks] = useState<MusicLink[]>([])
+  const [taggedIds, setTaggedIds] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
 
   const isOpen = !!pendingLocation
+
+  useEffect(() => {
+    if (isOpen) fetchFriends()
+  }, [isOpen, fetchFriends])
+
+  const friendProfiles: Profile[] = friends.map((f) =>
+    f.requester_id === user?.id
+      ? (f.addressee as Profile)
+      : (f.requester as Profile)
+  )
+
+  const toggleTag = useCallback((id: string) => {
+    setTaggedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const handleClose = useCallback(() => {
     setPendingLocation(null)
@@ -33,6 +58,7 @@ export function AddPinModal() {
     setImages([])
     setSpotifyTracks([])
     setMusicLinks([])
+    setTaggedIds(new Set())
   }, [setPendingLocation, setIsAddingPin])
 
   const handleSave = useCallback(async () => {
@@ -49,7 +75,8 @@ export function AddPinModal() {
       },
       images,
       spotifyTracks,
-      musicLinks
+      musicLinks,
+      [...taggedIds]
     )
 
     setSaving(false)
@@ -62,6 +89,7 @@ export function AddPinModal() {
     images,
     spotifyTracks,
     musicLinks,
+    taggedIds,
     createPin,
     handleClose,
   ])
@@ -101,6 +129,41 @@ export function AddPinModal() {
           onSpotifyChange={setSpotifyTracks}
           onLinksChange={setMusicLinks}
         />
+
+        {friendProfiles.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-2">
+              Tag Friends
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {friendProfiles.map((p) => {
+                const selected = taggedIds.has(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => toggleTag(p.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer
+                      ${selected
+                        ? 'bg-purple-500/30 text-purple-300 border border-purple-500/50'
+                        : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'
+                      }`}
+                  >
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold">
+                        {p.username?.charAt(0).toUpperCase() ?? '?'}
+                      </span>
+                    )}
+                    {p.username ?? p.profile_id}
+                    {selected && <X size={12} />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {pendingLocation && (
           <p className="text-xs text-white/30">

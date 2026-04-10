@@ -22,6 +22,14 @@ export interface Friendship {
   addressee?: Profile
 }
 
+export interface PinTag {
+  id: string
+  pin_id: string
+  tagged_user_id: string
+  created_at: string
+  profile?: Profile
+}
+
 export interface Pin {
   id: string
   user_id: string
@@ -33,7 +41,9 @@ export interface Pin {
   created_at: string
   images?: PinImage[]
   songs?: PinSong[]
+  tags?: PinTag[]
   profile?: Profile
+  isTagged?: boolean
 }
 
 export interface PinImage {

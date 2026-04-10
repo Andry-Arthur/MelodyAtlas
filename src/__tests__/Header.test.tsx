@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { useAppStore } from '@/store/appStore'
 
 vi.mock('@/lib/supabase', () => ({
@@ -13,6 +14,9 @@ vi.mock('@/lib/supabase', () => ({
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      ilike: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
     }),
   },
@@ -41,51 +45,113 @@ beforeEach(() => {
   })
 })
 
+function renderHeader() {
+  return render(
+    <MemoryRouter>
+      <Header />
+    </MemoryRouter>
+  )
+}
+
 describe('Header', () => {
   it('renders app title', () => {
-    render(<Header />)
+    renderHeader()
     expect(screen.getByText('Melody')).toBeInTheDocument()
     expect(screen.getByText('Atlas')).toBeInTheDocument()
   })
 
   it('renders "Add Memory" button', () => {
-    render(<Header />)
+    renderHeader()
     expect(screen.getByText('Add Memory')).toBeInTheDocument()
   })
 
   it('renders "Connect Spotify" button when disconnected', () => {
-    render(<Header />)
+    renderHeader()
     expect(screen.getByText('Connect Spotify')).toBeInTheDocument()
   })
 
   it('renders "Friends" button', () => {
-    render(<Header />)
+    renderHeader()
     expect(screen.getByText('Friends')).toBeInTheDocument()
   })
 
   it('toggles adding pin state when "Add Memory" is clicked', () => {
-    render(<Header />)
+    renderHeader()
     fireEvent.click(screen.getByText('Add Memory'))
     expect(useAppStore.getState().isAddingPin).toBe(true)
   })
 
   it('shows "Click map..." when in adding mode', () => {
     useAppStore.setState({ isAddingPin: true })
-    render(<Header />)
+    renderHeader()
     expect(screen.getByText('Click map...')).toBeInTheDocument()
   })
 
   it('shows instruction banner when adding pin', () => {
     useAppStore.setState({ isAddingPin: true })
-    render(<Header />)
+    renderHeader()
     expect(
       screen.getByText('Click anywhere on the map to place your memory')
     ).toBeInTheDocument()
   })
 
   it('opens friends panel when Friends is clicked', () => {
-    render(<Header />)
+    renderHeader()
     fireEvent.click(screen.getByText('Friends'))
     expect(useAppStore.getState().friendsPanelOpen).toBe(true)
+  })
+
+  it('renders unified search input', () => {
+    renderHeader()
+    expect(
+      screen.getByPlaceholderText('Search memories, people & places...')
+    ).toBeInTheDocument()
+  })
+
+  it('search input accepts text input', () => {
+    renderHeader()
+    const input = screen.getByPlaceholderText('Search memories, people & places...')
+    fireEvent.change(input, { target: { value: 'test' } })
+    expect(input).toHaveValue('test')
+  })
+
+  it('filters pins by title in search', () => {
+    useAppStore.setState({
+      pins: [
+        {
+          id: 'p1',
+          user_id: 'u1',
+          latitude: 40,
+          longitude: -74,
+          title: 'NYC Concert',
+          description: null,
+          pin_date: '2025-01-01',
+          created_at: new Date().toISOString(),
+          images: [],
+          songs: [],
+        },
+      ],
+      filteredPins: [
+        {
+          id: 'p1',
+          user_id: 'u1',
+          latitude: 40,
+          longitude: -74,
+          title: 'NYC Concert',
+          description: null,
+          pin_date: '2025-01-01',
+          created_at: new Date().toISOString(),
+          images: [],
+          songs: [],
+        },
+      ],
+    })
+    renderHeader()
+    const input = screen.getByPlaceholderText('Search memories, people & places...')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'NYC' } })
+
+    expect(screen.getByText('Your Memories')).toBeInTheDocument()
+    expect(screen.getByText('NYC Concert')).toBeInTheDocument()
   })
 })

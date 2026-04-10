@@ -1,21 +1,53 @@
 import { useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAppStore } from '@/store/appStore'
-import type { Pin, PinImage, PinSong, SpotifyTrack, MusicLink } from '@/types'
+import type { Pin, PinImage, PinSong, PinTag, SpotifyTrack, MusicLink } from '@/types'
+
+const PIN_SELECT = `*, images:pin_images(*), songs:pin_songs(*), tags:pin_tags(*, profile:profiles(*)), profile:profiles(*)`
 
 export function usePins() {
   const { setPins, addPin, updatePin, removePin } = useAppStore()
 
   const fetchPins = useCallback(async () => {
-    const { data, error } = await supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { data: null, error: new Error('Not authenticated') }
+
+    const { data: myPins, error: myErr } = await supabase
       .from('pins')
-      .select(`*, images:pin_images(*), songs:pin_songs(*), profile:profiles(*)`)
+      .select(PIN_SELECT)
+      .eq('user_id', user.id)
       .order('pin_date', { ascending: false })
 
-    if (!error && data) {
-      setPins(data as Pin[])
+    const { data: tagRows } = await supabase
+      .from('pin_tags')
+      .select('pin_id')
+      .eq('tagged_user_id', user.id)
+
+    let taggedPins: Pin[] = []
+    if (tagRows && tagRows.length > 0) {
+      const taggedIds = tagRows.map((t) => t.pin_id)
+      const { data } = await supabase
+        .from('pins')
+        .select(PIN_SELECT)
+        .in('id', taggedIds)
+        .order('pin_date', { ascending: false })
+
+      if (data) {
+        taggedPins = (data as Pin[]).map((p) => ({ ...p, isTagged: true }))
+      }
     }
-    return { data, error }
+
+    const ownPins = (myPins ?? []) as Pin[]
+    const ownIds = new Set(ownPins.map((p) => p.id))
+    const merged = [
+      ...ownPins,
+      ...taggedPins.filter((p) => !ownIds.has(p.id)),
+    ]
+
+    setPins(merged)
+    return { data: merged, error: myErr }
   }, [setPins])
 
   const createPin = useCallback(
@@ -29,7 +61,8 @@ export function usePins() {
       },
       images: File[],
       songs: SpotifyTrack[],
-      musicLinks: MusicLink[] = []
+      musicLinks: MusicLink[] = [],
+      taggedUserIds: string[] = []
     ) => {
       const {
         data: { user },
@@ -118,10 +151,22 @@ export function usePins() {
         if (songRow) insertedSongs.push(songRow as PinSong)
       }
 
+      const insertedTags: PinTag[] = []
+      for (const userId of taggedUserIds) {
+        const { data: tagRow } = await supabase
+          .from('pin_tags')
+          .insert({ pin_id: newPin.id, tagged_user_id: userId })
+          .select(`*, profile:profiles(*)`)
+          .single()
+
+        if (tagRow) insertedTags.push(tagRow as PinTag)
+      }
+
       const fullPin: Pin = {
         ...newPin,
         images: uploadedImages,
         songs: insertedSongs,
+        tags: insertedTags,
       }
       addPin(fullPin)
       return { error: null, pin: fullPin }
@@ -138,6 +183,7 @@ export function usePins() {
         }
       }
 
+      await supabase.from('pin_tags').delete().eq('pin_id', pin.id)
       await supabase.from('pin_images').delete().eq('pin_id', pin.id)
       await supabase.from('pin_songs').delete().eq('pin_id', pin.id)
       const { error } = await supabase.from('pins').delete().eq('id', pin.id)

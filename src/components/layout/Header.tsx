@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
 } from 'react'
+import { useNavigate } from 'react-router'
 import {
   MapPinPlus,
   Music,
@@ -41,6 +42,7 @@ export function Header() {
   } = useAppStore()
   const { connected, connect, disconnect } = useSpotify()
   const { searchUsers } = useFriends()
+  const navigate = useNavigate()
 
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -146,9 +148,11 @@ export function Header() {
 
   const selectPerson = useCallback(
     (p: Profile) => {
-      window.location.href = `/u/${p.profile_id}`
+      setQuery('')
+      setFocused(false)
+      navigate(`/u/${p.profile_id}`)
     },
-    []
+    [navigate]
   )
 
   const totalResults = pinResults.length + people.length + places.length

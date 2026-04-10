@@ -6,6 +6,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useAppStore } from '@/store/appStore'
@@ -56,6 +57,7 @@ export function PinDetail() {
 
   const images = selectedPin.images ?? []
   const songs = selectedPin.songs ?? []
+  const tags = selectedPin.tags ?? []
   const isOwner = user?.id === selectedPin.user_id
 
   const handleDelete = async () => {
@@ -140,6 +142,29 @@ export function PinDetail() {
             <p className="text-sm text-white/60 leading-relaxed">
               {selectedPin.description}
             </p>
+          )}
+
+          {tags.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Users size={12} className="text-purple-400 shrink-0" />
+              <span className="text-xs text-white/40">With:</span>
+              {tags.map((tag) => {
+                const p = tag.profile
+                if (!p) return null
+                return (
+                  <a
+                    key={tag.id}
+                    href={`/u/${p.profile_id}`}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 text-xs hover:bg-purple-500/25 transition-colors"
+                  >
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+                    ) : null}
+                    @{p.profile_id}
+                  </a>
+                )
+              })}
+            </div>
           )}
 
           {songs.length > 0 && (

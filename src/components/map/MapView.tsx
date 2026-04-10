@@ -48,7 +48,12 @@ export function MapView({ pins: externalPins, readonly }: MapViewProps) {
     () =>
       allPins.map((pin) => ({
         type: 'Feature' as const,
-        properties: { cluster: false, pin, isFriend: friendIdSet.has(pin.id) },
+        properties: {
+          cluster: false,
+          pin,
+          isFriend: friendIdSet.has(pin.id),
+          isTagged: !!pin.isTagged,
+        },
         geometry: {
           type: 'Point' as const,
           coordinates: [pin.longitude, pin.latitude],
@@ -168,14 +173,14 @@ export function MapView({ pins: externalPins, readonly }: MapViewProps) {
             )
           }
 
-          const props = cluster.properties as { pin: Pin; isFriend: boolean }
+          const props = cluster.properties as { pin: Pin; isFriend: boolean; isTagged: boolean }
           const pin = props.pin
-          const isFriend = props.isFriend
           return (
             <PinMarker
               key={pin.id}
               pin={pin}
-              isFriend={isFriend}
+              isFriend={props.isFriend}
+              isTagged={props.isTagged}
               onClick={() => handlePinClick(pin)}
             />
           )

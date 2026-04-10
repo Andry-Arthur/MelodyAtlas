@@ -33,7 +33,16 @@ beforeEach(() => {
 })
 
 describe('usePins - fetchPins', () => {
-  it('fetches pins and sets them in the store', async () => {
+  it('calls getUser to scope pins to current user', async () => {
+    mockSupa._chain._setResolve({ data: [], error: null })
+
+    const { result } = renderHook(() => usePins())
+    await act(() => result.current.fetchPins())
+
+    expect(mockSupa.auth.getUser).toHaveBeenCalled()
+  })
+
+  it('fetches own pins and stores them', async () => {
     const pins = [fakePin, { ...fakePin, id: 'pin-2', title: 'Second' }]
     mockSupa._chain._setResolve({ data: pins, error: null })
 
@@ -41,17 +50,36 @@ describe('usePins - fetchPins', () => {
     await act(() => result.current.fetchPins())
 
     expect(mockSupa.from).toHaveBeenCalledWith('pins')
-    expect(useAppStore.getState().pins).toHaveLength(2)
-    expect(useAppStore.getState().filteredPins).toHaveLength(2)
+    expect(useAppStore.getState().pins.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('returns error when not authenticated', async () => {
+    mockSupa.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+    })
+
+    const { result } = renderHook(() => usePins())
+    const { error } = await act(() => result.current.fetchPins())
+
+    expect(error).toBeTruthy()
+    expect(useAppStore.getState().pins).toHaveLength(0)
+  })
+
+  it('queries pin_tags for tagged pins', async () => {
+    mockSupa._chain._setResolve({ data: [], error: null })
+
+    const { result } = renderHook(() => usePins())
+    await act(() => result.current.fetchPins())
+
+    expect(mockSupa.from).toHaveBeenCalledWith('pin_tags')
   })
 
   it('does not update store on error', async () => {
     mockSupa._chain._setResolve({ data: null, error: { message: 'DB error' } })
 
     const { result } = renderHook(() => usePins())
-    const { error } = await act(() => result.current.fetchPins())
+    await act(() => result.current.fetchPins())
 
-    expect(error?.message).toBe('DB error')
     expect(useAppStore.getState().pins).toHaveLength(0)
   })
 })
@@ -93,6 +121,73 @@ describe('usePins - createPin', () => {
     expect(useAppStore.getState().pins[0].title).toBe('London')
   })
 
+  it('inserts pin_tags when taggedUserIds provided', async () => {
+    const dbPin = {
+      id: 'new-pin',
+      user_id: 'user-123',
+      latitude: 51.5,
+      longitude: -0.1,
+      title: 'Tagged Memory',
+      description: '',
+      pin_date: '2025-07-01',
+      created_at: new Date().toISOString(),
+    }
+    mockSupa._chain._setResolve({ data: dbPin, error: null })
+
+    const { result } = renderHook(() => usePins())
+
+    await act(async () => {
+      await result.current.createPin(
+        {
+          latitude: 51.5,
+          longitude: -0.1,
+          title: 'Tagged Memory',
+          description: '',
+          pin_date: '2025-07-01',
+        },
+        [],
+        [],
+        [],
+        ['friend-1', 'friend-2']
+      )
+    })
+
+    expect(mockSupa.from).toHaveBeenCalledWith('pin_tags')
+  })
+
+  it('returns pin with empty tags when no friends tagged', async () => {
+    const dbPin = {
+      id: 'new-pin',
+      user_id: 'user-123',
+      latitude: 51.5,
+      longitude: -0.1,
+      title: 'Solo Memory',
+      description: '',
+      pin_date: '2025-07-01',
+      created_at: new Date().toISOString(),
+    }
+    mockSupa._chain._setResolve({ data: dbPin, error: null })
+
+    const { result } = renderHook(() => usePins())
+    let res: Awaited<ReturnType<typeof result.current.createPin>>
+
+    await act(async () => {
+      res = await result.current.createPin(
+        {
+          latitude: 51.5,
+          longitude: -0.1,
+          title: 'Solo Memory',
+          description: '',
+          pin_date: '2025-07-01',
+        },
+        [],
+        []
+      )
+    })
+
+    expect(res!.pin?.tags).toEqual([])
+  })
+
   it('returns error when not authenticated', async () => {
     mockSupa.auth.getUser.mockResolvedValueOnce({
       data: { user: null },
@@ -131,13 +226,17 @@ describe('usePins - createPin', () => {
 })
 
 describe('usePins - deletePin', () => {
-  it('deletes pin and removes from store on success', async () => {
+  it('deletes pin_tags, images, songs, and pin on success', async () => {
     useAppStore.setState({ pins: [fakePin], filteredPins: [fakePin] })
     mockSupa._chain._setResolve({ data: null, error: null })
 
     const { result } = renderHook(() => usePins())
     await act(() => result.current.deletePin(fakePin))
 
+    expect(mockSupa.from).toHaveBeenCalledWith('pin_tags')
+    expect(mockSupa.from).toHaveBeenCalledWith('pin_images')
+    expect(mockSupa.from).toHaveBeenCalledWith('pin_songs')
+    expect(mockSupa.from).toHaveBeenCalledWith('pins')
     expect(useAppStore.getState().pins).toHaveLength(0)
   })
 

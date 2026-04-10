@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, UserPlus, UserCheck, Clock, MapPin } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useProfile } from '@/hooks/useProfile'
 import { useFriends } from '@/hooks/useFriends'
 import { useAuth } from '@/hooks/useAuth'
+import { useAppStore } from '@/store/appStore'
 import { MapView } from '@/components/map/MapView'
+import { PinDetail } from '@/components/pins/PinDetail'
 import { Button } from '@/components/ui/Button'
 import type { Pin, Profile } from '@/types'
+
+const PIN_SELECT = `*, images:pin_images(*), songs:pin_songs(*), tags:pin_tags(*, profile:profiles(*)), profile:profiles(*)`
 
 export function UserProfilePage() {
   const { profileId } = useParams<{ profileId: string }>()
@@ -16,6 +20,7 @@ export function UserProfilePage() {
   const { user } = useAuth()
   const { fetchProfile } = useProfile()
   const { friends, fetchFriends, sendRequest } = useFriends()
+  const selectedPin = useAppStore((s) => s.selectedPin)
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [pins, setPins] = useState<Pin[]>([])
@@ -39,9 +44,7 @@ export function UserProfilePage() {
       if (p) {
         const { data } = await supabase
           .from('pins')
-          .select(
-            '*, images:pin_images(*), songs:pin_songs(*), profile:profiles(*)'
-          )
+          .select(PIN_SELECT)
           .eq('user_id', p.id)
           .order('pin_date', { ascending: false })
 
@@ -85,7 +88,9 @@ export function UserProfilePage() {
 
   return (
     <div className="h-screen w-screen bg-zinc-950 relative">
-      <MapView pins={pins} readonly />
+      <MapView pins={pins} />
+
+      <AnimatePresence>{selectedPin && <PinDetail />}</AnimatePresence>
 
       <motion.div
         initial={{ opacity: 0, y: -20 }}
