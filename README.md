@@ -55,13 +55,16 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) in your browser.
 
 ## Features
 
-- **Interactive Map** -- Full-screen dark Mapbox map with smooth pan/zoom
-- **Pin Memories** -- Click anywhere to pin photos and Spotify songs to a location
-- **Image Uploads** -- Drag-and-drop photo uploads stored in Supabase Storage
-- **Spotify Search** -- Search and attach songs via the Spotify Web API (PKCE auth)
-- **Timeline** -- Filter pins by date range with an animated timeline slider
-- **Clustering** -- Pins cluster together when zoomed out
-- **Multi-user** -- Sign up / sign in with email or Google OAuth; all pins are public on the map
+- **Interactive Map** -- Full-screen dark Mapbox map with smooth pan/zoom and pin clustering
+- **Your Atlas** -- Each account has its own map of memories; see pins you created and pins friends tagged you on
+- **Pin Memories** -- Click to place photos and music (Spotify plus other platforms via embeds) at a location and date
+- **Image Uploads** -- Photos stored in Supabase Storage
+- **Friends & Profiles** -- Friend requests, public profile pages at `/u/:profileId`, and optional tagging on memories
+- **Search** -- Memories, people (by profile ID), and Mapbox places from the header
+- **Timeline** -- Filter pins by date range from birthday (or earliest pin) through today
+- **Accounts** -- Sign up / sign in with email or OAuth (configure providers in Supabase)
+
+See the **[Roadmap](ROADMAP.md)** for planned work and how to contribute to direction.
 
 ## Tech Stack
 
