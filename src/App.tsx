@@ -7,6 +7,9 @@ import { Header } from '@/components/layout/Header'
 import { AddPinModal } from '@/components/pins/AddPinModal'
 import { PinDetail } from '@/components/pins/PinDetail'
 import { TimelineSlider } from '@/components/timeline/TimelineSlider'
+import { FriendsPanel } from '@/components/friends/FriendsPanel'
+import { EditProfileModal } from '@/components/profile/EditProfileModal'
+import { OnboardingModal } from '@/components/profile/OnboardingModal'
 import { useAppStore } from '@/store/appStore'
 import { usePins } from '@/hooks/usePins'
 
@@ -26,6 +29,9 @@ function AppContent() {
       <EmptyState />
       <AddPinModal />
       <TimelineSlider />
+      <FriendsPanel />
+      <EditProfileModal />
+      <OnboardingModal />
     </div>
   )
 }

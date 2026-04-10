@@ -2,9 +2,24 @@ import type { PlatformType } from '@/lib/platforms'
 
 export interface Profile {
   id: string
+  profile_id: string
   username: string | null
   avatar_url: string | null
+  bio: string | null
+  date_of_birth: string | null
   created_at: string
+}
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'declined'
+
+export interface Friendship {
+  id: string
+  requester_id: string
+  addressee_id: string
+  status: FriendshipStatus
+  created_at: string
+  requester?: Profile
+  addressee?: Profile
 }
 
 export interface Pin {

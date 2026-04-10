@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Pin } from '@/types'
+import type { Pin, Profile } from '@/types'
 
 interface AppState {
   pins: Pin[]
@@ -9,6 +9,13 @@ interface AppState {
   pendingLocation: { lat: number; lng: number } | null
   dateRange: [Date, Date] | null
   timelineValue: [Date, Date] | null
+
+  friends: Profile[]
+  friendPins: Pin[]
+  showFriendPins: boolean
+  friendsPanelOpen: boolean
+  editProfileOpen: boolean
+  flyTo: { lng: number; lat: number; zoom?: number } | null
 
   setPins: (pins: Pin[]) => void
   setFilteredPins: (pins: Pin[]) => void
@@ -20,6 +27,13 @@ interface AppState {
   addPin: (pin: Pin) => void
   updatePin: (pin: Pin) => void
   removePin: (id: string) => void
+
+  setFriends: (friends: Profile[]) => void
+  setFriendPins: (pins: Pin[]) => void
+  toggleFriendPins: () => void
+  setFriendsPanelOpen: (v: boolean) => void
+  setEditProfileOpen: (v: boolean) => void
+  setFlyTo: (target: { lng: number; lat: number; zoom?: number } | null) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -31,13 +45,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   dateRange: null,
   timelineValue: null,
 
+  friends: [],
+  friendPins: [],
+  showFriendPins: false,
+  friendsPanelOpen: false,
+  editProfileOpen: false,
+  flyTo: null,
+
   setPins: (pins) => set({ pins, filteredPins: pins }),
-  setFilteredPins: (filteredPins) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'appStore.ts:setFilteredPins',message:'setFilteredPins called',data:{newFilteredCount:filteredPins.length,stack:new Error().stack?.split('\\n').slice(1,4).map(s=>s.trim())},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
-    set({ filteredPins })
-  },
+  setFilteredPins: (filteredPins) => set({ filteredPins }),
   setSelectedPin: (selectedPin) => set({ selectedPin }),
   setIsAddingPin: (isAddingPin) => set({ isAddingPin }),
   setPendingLocation: (pendingLocation) => set({ pendingLocation }),
@@ -46,9 +62,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addPin: (pin) => {
     const pins = [...get().pins, pin]
-    // #region agent log
-    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'appStore.ts:addPin',message:'store addPin called',data:{newPinCount:pins.length,addedPinId:pin.id,addedLat:pin.latitude,addedLng:pin.longitude},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     set({ pins, filteredPins: pins })
   },
   updatePin: (pin) => {
@@ -59,4 +72,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const pins = get().pins.filter((p) => p.id !== id)
     set({ pins, filteredPins: pins })
   },
+
+  setFriends: (friends) => set({ friends }),
+  setFriendPins: (friendPins) => set({ friendPins }),
+  toggleFriendPins: () => set({ showFriendPins: !get().showFriendPins }),
+  setFriendsPanelOpen: (friendsPanelOpen) => set({ friendsPanelOpen }),
+  setEditProfileOpen: (editProfileOpen) => set({ editProfileOpen }),
+  setFlyTo: (flyTo) => set({ flyTo }),
 }))

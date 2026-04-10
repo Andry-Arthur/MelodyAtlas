@@ -193,7 +193,7 @@ export async function resolveMusic(url: string): Promise<{
   if (!embedUrl) return null
 
   let title = 'Music'
-  let artist = ''
+  const artist = ''
   const thumbnail = ''
 
   if (platform === 'youtube') {

@@ -2,33 +2,51 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { Play, Pause } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
+import { useProfile } from '@/hooks/useProfile'
+
+const TODAY = new Date().getTime()
 
 export function TimelineSlider() {
   const { pins, setFilteredPins, dateRange, setDateRange } = useAppStore()
+  const { profile, fetchMyProfile } = useProfile()
+
+  useEffect(() => {
+    fetchMyProfile()
+  }, [fetchMyProfile])
   const [playing, setPlaying] = useState(false)
   const playRef = useRef<ReturnType<typeof setInterval>>(undefined)
   const [sliderValues, setSliderValues] = useState<[number, number]>([0, 100])
+  const [prevRange, setPrevRange] = useState<{ min: number; max: number } | null>(null)
+
+  const dob = profile?.date_of_birth ?? null
 
   const range = useMemo(() => {
-    if (pins.length === 0) return null
-    const dates = pins
-      .map((p) => new Date(p.pin_date).getTime())
-      .sort((a, b) => a - b)
-    const min = dates[0]
-    const max = dates[dates.length - 1]
-    if (min === max) return null
-    return { min, max }
-  }, [pins])
+    let min: number | null = null
 
-  useEffect(() => {
-    if (range) {
-      // #region agent log
-      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'TimelineSlider.tsx:useEffect',message:'range changed, resetting slider',data:{rangeMin:range.min,rangeMax:range.max,pinCount:pins.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
-      setDateRange([new Date(range.min), new Date(range.max)])
-      setSliderValues([0, 100])
+    if (dob) {
+      min = new Date(dob).getTime()
     }
-  }, [range, setDateRange])
+
+    if (min === null) {
+      if (pins.length === 0) return null
+      const dates = pins
+        .map((p) => new Date(p.pin_date).getTime())
+        .sort((a, b) => a - b)
+      min = dates[0]
+      if (min === dates[dates.length - 1]) return null
+    }
+
+    return { min, max: TODAY }
+  }, [pins, dob])
+
+  if (
+    range &&
+    (prevRange?.min !== range.min || prevRange?.max !== range.max)
+  ) {
+    setPrevRange(range)
+    setDateRange([new Date(range.min), new Date(range.max)])
+    setSliderValues([0, 100])
+  }
 
   const filterPins = useCallback(
     (values: [number, number]) => {
@@ -40,9 +58,6 @@ export function TimelineSlider() {
         const t = new Date(p.pin_date).getTime()
         return t >= startTs && t <= endTs
       })
-      // #region agent log
-      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'TimelineSlider.tsx:filterPins',message:'filterPins called',data:{values,pinCount:pins.length,filteredCount:filtered.length,startTs,endTs},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       setFilteredPins(filtered)
     },
     [pins, range, setDateRange, setFilteredPins]
@@ -101,7 +116,7 @@ export function TimelineSlider() {
     return () => clearInterval(playRef.current)
   }, [])
 
-  if (!range || pins.length < 2) return null
+  if (!range) return null
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[min(90vw,640px)]">

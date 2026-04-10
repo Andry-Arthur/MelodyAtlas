@@ -8,7 +8,7 @@ interface MapControlsProps {
 
 export function MapControls({ mapRef }: MapControlsProps) {
   return (
-    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-10">
+    <>
       <button
         onClick={() => mapRef.current?.zoomIn({ duration: 300 })}
         className="w-9 h-9 rounded-lg bg-zinc-900/80 backdrop-blur border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer"
@@ -39,6 +39,6 @@ export function MapControls({ mapRef }: MapControlsProps) {
       >
         <LocateFixed size={16} />
       </button>
-    </div>
+    </>
   )
 }

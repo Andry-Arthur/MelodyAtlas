@@ -12,9 +12,6 @@ export function usePins() {
       .select(`*, images:pin_images(*), songs:pin_songs(*), profile:profiles(*)`)
       .order('pin_date', { ascending: false })
 
-    // #region agent log
-    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'usePins.ts:fetchPins',message:'fetchPins result',data:{pinCount:data?.length??0,error:error?.message??null},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-    // #endregion
     if (!error && data) {
       setPins(data as Pin[])
     }
@@ -34,15 +31,9 @@ export function usePins() {
       songs: SpotifyTrack[],
       musicLinks: MusicLink[] = []
     ) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'usePins.ts:createPin:entry',message:'createPin entered',data:{pin,songCount:songs.length,linkCount:musicLinks.length},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      // #region agent log
-      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'usePins.ts:37',message:'auth user check',data:{hasUser:!!user,userId:user?.id?.slice(0,8)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       if (!user) return { error: new Error('Not authenticated') }
 
       const { data: newPin, error } = await supabase
@@ -51,9 +42,6 @@ export function usePins() {
         .select()
         .single()
 
-      // #region agent log
-      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'usePins.ts:49',message:'pin insert result',data:{hasPin:!!newPin,pinId:newPin?.id,error:error?.message??null,pinLat:pin.latitude,pinLng:pin.longitude},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       if (error || !newPin) return { error }
 
       const uploadedImages: PinImage[] = []
@@ -135,9 +123,6 @@ export function usePins() {
         images: uploadedImages,
         songs: insertedSongs,
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'usePins.ts:133',message:'calling addPin with fullPin',data:{pinId:fullPin.id,lat:fullPin.latitude,lng:fullPin.longitude,title:fullPin.title,imgCount:uploadedImages.length,songCount:insertedSongs.length},timestamp:Date.now(),hypothesisId:'H1_H4'})}).catch(()=>{});
-      // #endregion
       addPin(fullPin)
       return { error: null, pin: fullPin }
     },

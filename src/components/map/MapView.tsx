@@ -7,28 +7,54 @@ import { useAppStore } from '@/store/appStore'
 import { PinMarker } from './PinMarker'
 import { ClusterMarker } from './ClusterMarker'
 import { MapControls } from './MapControls'
+import { FriendOverlayToggle } from '@/components/friends/FriendOverlayToggle'
 import type { Pin } from '@/types'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? ''
 
-export function MapView() {
+interface MapViewProps {
+  pins?: Pin[]
+  readonly?: boolean
+}
+
+export function MapView({ pins: externalPins, readonly }: MapViewProps) {
   const mapRef = useRef<MapRef>(null)
-  const { filteredPins, isAddingPin, setPendingLocation, setSelectedPin } =
-    useAppStore()
+  const {
+    filteredPins,
+    friendPins,
+    showFriendPins,
+    isAddingPin,
+    flyTo,
+    setPendingLocation,
+    setSelectedPin,
+    setFlyTo,
+  } = useAppStore()
   const [zoom, setZoom] = useState(2)
   const [bounds, setBounds] = useState<BBox | null>(null)
 
+  const activePins = externalPins ?? filteredPins
+  const friendIdSet = useMemo(
+    () => new Set(friendPins.map((p) => p.id)),
+    [friendPins]
+  )
+
+  const allPins = useMemo(() => {
+    if (externalPins) return externalPins
+    if (!showFriendPins) return activePins
+    return [...activePins, ...friendPins]
+  }, [externalPins, activePins, friendPins, showFriendPins])
+
   const points = useMemo(
     () =>
-      filteredPins.map((pin) => ({
+      allPins.map((pin) => ({
         type: 'Feature' as const,
-        properties: { cluster: false, pin },
+        properties: { cluster: false, pin, isFriend: friendIdSet.has(pin.id) },
         geometry: {
           type: 'Point' as const,
           coordinates: [pin.longitude, pin.latitude],
         },
       })),
-    [filteredPins]
+    [allPins, friendIdSet]
   )
 
   const supercluster = useMemo(() => {
@@ -36,17 +62,14 @@ export function MapView() {
       radius: 60,
       maxZoom: 16,
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sc.load(points as any)
     return sc
   }, [points])
 
   const clusters = useMemo(() => {
     if (!bounds) return []
-    const result = supercluster.getClusters(bounds, Math.floor(zoom))
-    // #region agent log
-    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'MapView.tsx:clusters',message:'clusters recomputed',data:{filteredPinCount:filteredPins.length,pointCount:points.length,clusterCount:result.length,bounds,zoom:Math.floor(zoom)},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
-    return result
+    return supercluster.getClusters(bounds, Math.floor(zoom))
   }, [supercluster, bounds, zoom])
 
   const updateBounds = useCallback(() => {
@@ -54,12 +77,7 @@ export function MapView() {
     if (!map) return
     const b = map.getBounds()
     if (!b) return
-    setBounds([
-      b.getWest(),
-      b.getSouth(),
-      b.getEast(),
-      b.getNorth(),
-    ])
+    setBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
     setZoom(map.getZoom())
   }, [])
 
@@ -67,13 +85,23 @@ export function MapView() {
     setTimeout(updateBounds, 100)
   }, [updateBounds])
 
+  useEffect(() => {
+    if (!flyTo) return
+    mapRef.current?.flyTo({
+      center: [flyTo.lng, flyTo.lat],
+      zoom: flyTo.zoom ?? 12,
+      duration: 1200,
+    })
+    setFlyTo(null)
+  }, [flyTo, setFlyTo])
+
   const handleClick = useCallback(
     (e: MapMouseEvent) => {
-      if (isAddingPin) {
+      if (!readonly && isAddingPin) {
         setPendingLocation({ lat: e.lngLat.lat, lng: e.lngLat.lng })
       }
     },
-    [isAddingPin, setPendingLocation]
+    [readonly, isAddingPin, setPendingLocation]
   )
 
   const handlePinClick = useCallback(
@@ -117,12 +145,13 @@ export function MapView() {
         mapStyle="mapbox://styles/mapbox/dark-v11"
         onClick={handleClick}
         onMove={updateBounds}
-        cursor={isAddingPin ? 'crosshair' : 'grab'}
+        cursor={!readonly && isAddingPin ? 'crosshair' : 'grab'}
         attributionControl={false}
       >
         {clusters.map((cluster) => {
           const [lng, lat] = cluster.geometry.coordinates
           const { cluster: isCluster, point_count: pointCount } =
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             cluster.properties as any
 
           if (isCluster) {
@@ -139,18 +168,24 @@ export function MapView() {
             )
           }
 
-          const pin = (cluster.properties as any).pin as Pin
+          const props = cluster.properties as { pin: Pin; isFriend: boolean }
+          const pin = props.pin
+          const isFriend = props.isFriend
           return (
             <PinMarker
               key={pin.id}
               pin={pin}
+              isFriend={isFriend}
               onClick={() => handlePinClick(pin)}
             />
           )
         })}
       </Map>
 
-      <MapControls mapRef={mapRef} />
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-10">
+        <MapControls mapRef={mapRef} />
+        {!readonly && <FriendOverlayToggle />}
+      </div>
     </div>
   )
 }
