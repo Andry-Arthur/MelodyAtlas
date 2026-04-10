@@ -43,9 +43,35 @@ export function useAuth() {
     return { error }
   }, [])
 
+  const signInWithFacebook = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: { redirectTo: window.location.origin },
+    })
+    return { error }
+  }, [])
+
+  const signInWithSpotify = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'spotify',
+      options: { redirectTo: window.location.origin },
+    })
+    return { error }
+  }, [])
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
   }, [])
 
-  return { user, session, loading, signUp, signIn, signInWithGoogle, signOut }
+  return {
+    user,
+    session,
+    loading,
+    signUp,
+    signIn,
+    signInWithGoogle,
+    signInWithFacebook,
+    signInWithSpotify,
+    signOut,
+  }
 }

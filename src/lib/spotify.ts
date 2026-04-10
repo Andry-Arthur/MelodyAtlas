@@ -1,5 +1,5 @@
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID ?? ''
-const REDIRECT_URI = `${window.location.origin}/spotify-callback`
+const REDIRECT_URI = `${window.location.origin.replace('://localhost', '://127.0.0.1')}/spotify-callback`
 const SCOPES = 'user-read-private'
 
 function generateRandomString(length: number): string {

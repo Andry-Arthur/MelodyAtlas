@@ -42,7 +42,11 @@ export function MapView() {
 
   const clusters = useMemo(() => {
     if (!bounds) return []
-    return supercluster.getClusters(bounds, Math.floor(zoom))
+    const result = supercluster.getClusters(bounds, Math.floor(zoom))
+    // #region agent log
+    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'MapView.tsx:clusters',message:'clusters recomputed',data:{filteredPinCount:filteredPins.length,pointCount:points.length,clusterCount:result.length,bounds,zoom:Math.floor(zoom)},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
+    return result
   }, [supercluster, bounds, zoom])
 
   const updateBounds = useCallback(() => {

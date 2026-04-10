@@ -12,6 +12,37 @@ import { useAppStore } from '@/store/appStore'
 import { usePins } from '@/hooks/usePins'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
+import { getEmbedHeight, getPlatformLabel } from '@/lib/platforms'
+import type { PinSong } from '@/types'
+
+function SongEmbed({ song }: { song: PinSong }) {
+  const platform = song.platform ?? 'spotify'
+
+  const embedSrc =
+    song.embed_url ??
+    (song.spotify_track_id
+      ? `https://open.spotify.com/embed/track/${song.spotify_track_id}?theme=0`
+      : null)
+
+  if (!embedSrc) return null
+
+  const height = getEmbedHeight(platform)
+
+  return (
+    <div className="rounded-xl overflow-hidden">
+      <iframe
+        src={embedSrc}
+        width="100%"
+        height={height}
+        allow="encrypted-media; autoplay; clipboard-write"
+        loading="lazy"
+        className="rounded-xl"
+        style={{ border: 'none' }}
+        title={`${getPlatformLabel(platform)} - ${song.track_name}`}
+      />
+    </div>
+  )
+}
 
 export function PinDetail() {
   const { selectedPin, setSelectedPin } = useAppStore()
@@ -114,17 +145,7 @@ export function PinDetail() {
           {songs.length > 0 && (
             <div className="space-y-2">
               {songs.map((song) => (
-                <div key={song.id} className="rounded-xl overflow-hidden">
-                  <iframe
-                    src={`https://open.spotify.com/embed/track/${song.spotify_track_id}?theme=0`}
-                    width="100%"
-                    height="80"
-                    allow="encrypted-media"
-                    loading="lazy"
-                    className="rounded-xl"
-                    style={{ border: 'none' }}
-                  />
-                </div>
+                <SongEmbed key={song.id} song={song} />
               ))}
             </div>
           )}

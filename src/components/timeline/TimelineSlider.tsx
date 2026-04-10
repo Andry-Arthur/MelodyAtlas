@@ -22,6 +22,9 @@ export function TimelineSlider() {
 
   useEffect(() => {
     if (range) {
+      // #region agent log
+      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'TimelineSlider.tsx:useEffect',message:'range changed, resetting slider',data:{rangeMin:range.min,rangeMax:range.max,pinCount:pins.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
       setDateRange([new Date(range.min), new Date(range.max)])
       setSliderValues([0, 100])
     }
@@ -37,6 +40,9 @@ export function TimelineSlider() {
         const t = new Date(p.pin_date).getTime()
         return t >= startTs && t <= endTs
       })
+      // #region agent log
+      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'TimelineSlider.tsx:filterPins',message:'filterPins called',data:{values,pinCount:pins.length,filteredCount:filtered.length,startTs,endTs},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
       setFilteredPins(filtered)
     },
     [pins, range, setDateRange, setFilteredPins]

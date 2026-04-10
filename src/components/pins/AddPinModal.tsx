@@ -3,10 +3,10 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input, TextArea } from '@/components/ui/Input'
 import { ImageUploader } from './ImageUploader'
-import { SpotifySearch } from '@/components/spotify/SpotifySearch'
+import { MusicInput } from '@/components/music/MusicInput'
 import { useAppStore } from '@/store/appStore'
 import { usePins } from '@/hooks/usePins'
-import type { SpotifyTrack } from '@/types'
+import type { SpotifyTrack, MusicLink } from '@/types'
 
 export function AddPinModal() {
   const { pendingLocation, setPendingLocation, setIsAddingPin } = useAppStore()
@@ -18,7 +18,8 @@ export function AddPinModal() {
     new Date().toISOString().split('T')[0]
   )
   const [images, setImages] = useState<File[]>([])
-  const [songs, setSongs] = useState<SpotifyTrack[]>([])
+  const [spotifyTracks, setSpotifyTracks] = useState<SpotifyTrack[]>([])
+  const [musicLinks, setMusicLinks] = useState<MusicLink[]>([])
   const [saving, setSaving] = useState(false)
 
   const isOpen = !!pendingLocation
@@ -30,24 +31,41 @@ export function AddPinModal() {
     setDescription('')
     setPinDate(new Date().toISOString().split('T')[0])
     setImages([])
-    setSongs([])
+    setSpotifyTracks([])
+    setMusicLinks([])
   }, [setPendingLocation, setIsAddingPin])
 
   const handleSave = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'AddPinModal.tsx:handleSave',message:'handleSave entered',data:{hasPendingLoc:!!pendingLocation,title:title.trim(),pendingLocation},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
     if (!pendingLocation || !title.trim()) return
     setSaving(true)
 
-    await createPin(
-      {
-        latitude: pendingLocation.lat,
-        longitude: pendingLocation.lng,
-        title: title.trim(),
-        description: description.trim(),
-        pin_date: pinDate,
-      },
-      images,
-      songs
-    )
+    // #region agent log
+    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'AddPinModal.tsx:beforeCreatePin',message:'about to call createPin',data:{lat:pendingLocation?.lat,lng:pendingLocation?.lng,title:title.trim()},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
+    try {
+      const result = await createPin(
+        {
+          latitude: pendingLocation.lat,
+          longitude: pendingLocation.lng,
+          title: title.trim(),
+          description: description.trim(),
+          pin_date: pinDate,
+        },
+        images,
+        spotifyTracks,
+        musicLinks
+      )
+      // #region agent log
+      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'AddPinModal.tsx:afterCreatePin',message:'createPin returned',data:{result:result?.error?.message??'success',hasPin:!!result?.pin},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
+    } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'AddPinModal.tsx:createPinError',message:'createPin threw',data:{error:err?.message??String(err)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
+    }
 
     setSaving(false)
     handleClose()
@@ -57,7 +75,8 @@ export function AddPinModal() {
     description,
     pinDate,
     images,
-    songs,
+    spotifyTracks,
+    musicLinks,
     createPin,
     handleClose,
   ])
@@ -91,7 +110,12 @@ export function AddPinModal() {
 
         <ImageUploader images={images} onChange={setImages} />
 
-        <SpotifySearch selected={songs} onSelect={setSongs} />
+        <MusicInput
+          spotifyTracks={spotifyTracks}
+          musicLinks={musicLinks}
+          onSpotifyChange={setSpotifyTracks}
+          onLinksChange={setMusicLinks}
+        />
 
         {pendingLocation && (
           <p className="text-xs text-white/30">

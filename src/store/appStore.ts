@@ -32,7 +32,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   timelineValue: null,
 
   setPins: (pins) => set({ pins, filteredPins: pins }),
-  setFilteredPins: (filteredPins) => set({ filteredPins }),
+  setFilteredPins: (filteredPins) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'appStore.ts:setFilteredPins',message:'setFilteredPins called',data:{newFilteredCount:filteredPins.length,stack:new Error().stack?.split('\\n').slice(1,4).map(s=>s.trim())},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+    set({ filteredPins })
+  },
   setSelectedPin: (selectedPin) => set({ selectedPin }),
   setIsAddingPin: (isAddingPin) => set({ isAddingPin }),
   setPendingLocation: (pendingLocation) => set({ pendingLocation }),
@@ -41,6 +46,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addPin: (pin) => {
     const pins = [...get().pins, pin]
+    // #region agent log
+    fetch('http://127.0.0.1:7818/ingest/e9ae0393-a9de-4e9e-8a66-dbf8b99f5e12',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d64d3'},body:JSON.stringify({sessionId:'4d64d3',location:'appStore.ts:addPin',message:'store addPin called',data:{newPinCount:pins.length,addedPinId:pin.id,addedLat:pin.latitude,addedLng:pin.longitude},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
     set({ pins, filteredPins: pins })
   },
   updatePin: (pin) => {

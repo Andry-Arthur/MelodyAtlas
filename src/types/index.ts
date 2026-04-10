@@ -1,3 +1,5 @@
+import type { PlatformType } from '@/lib/platforms'
+
 export interface Profile {
   id: string
   username: string | null
@@ -30,12 +32,15 @@ export interface PinImage {
 export interface PinSong {
   id: string
   pin_id: string
-  spotify_track_id: string
+  spotify_track_id: string | null
   track_name: string
   artist_name: string
   album_name: string
   album_art_url: string
-  spotify_uri: string
+  spotify_uri: string | null
+  platform: PlatformType
+  platform_url: string | null
+  embed_url: string | null
 }
 
 export interface SpotifyTrack {
@@ -48,6 +53,15 @@ export interface SpotifyTrack {
   }
   uri: string
   external_urls: { spotify: string }
+}
+
+export interface MusicLink {
+  platform: PlatformType
+  platformUrl: string
+  embedUrl: string
+  title: string
+  artist: string
+  thumbnail: string
 }
 
 export interface NewPin {
