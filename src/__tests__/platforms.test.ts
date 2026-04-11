@@ -5,12 +5,29 @@ import {
   getPlatformColor,
   extractEmbedUrl,
   getEmbedHeight,
+  parseSpotifyFromUrl,
 } from '../lib/platforms'
 
 describe('detectPlatform', () => {
   it('detects Spotify track URLs', () => {
     expect(
       detectPlatform('https://open.spotify.com/track/6rqhFgbbKwnb9MLmUQDhG6')
+    ).toBe('spotify')
+  })
+
+  it('detects Spotify URLs with intl locale segment', () => {
+    expect(
+      detectPlatform(
+        'https://open.spotify.com/intl-en/track/6rqhFgbbKwnb9MLmUQDhG6'
+      )
+    ).toBe('spotify')
+  })
+
+  it('detects Spotify URLs with query string', () => {
+    expect(
+      detectPlatform(
+        'https://open.spotify.com/track/6rqhFgbbKwnb9MLmUQDhG6?si=abc123'
+      )
     ).toBe('spotify')
   })
 
@@ -26,6 +43,24 @@ describe('detectPlatform', () => {
         'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'
       )
     ).toBe('spotify')
+  })
+
+  it('detects Deezer track URLs', () => {
+    expect(detectPlatform('https://www.deezer.com/track/3135556')).toBe(
+      'deezer'
+    )
+  })
+
+  it('detects Deezer track URLs with locale path', () => {
+    expect(detectPlatform('https://www.deezer.com/en/track/3135556')).toBe(
+      'deezer'
+    )
+  })
+
+  it('detects Tidal listen URLs', () => {
+    expect(
+      detectPlatform('https://listen.tidal.com/track/251380832')
+    ).toBe('tidal')
   })
 
   it('detects YouTube watch URLs', () => {
@@ -79,6 +114,19 @@ describe('detectPlatform', () => {
   })
 })
 
+describe('parseSpotifyFromUrl', () => {
+  it('parses intl and plain Spotify URLs', () => {
+    expect(
+      parseSpotifyFromUrl(
+        'https://open.spotify.com/intl-de/track/6rqhFgbbKwnb9MLmUQDhG6'
+      )
+    ).toEqual({ kind: 'track', id: '6rqhFgbbKwnb9MLmUQDhG6' })
+    expect(
+      parseSpotifyFromUrl('https://open.spotify.com/track/6rqhFgbbKwnb9MLmUQDhG6')
+    ).toEqual({ kind: 'track', id: '6rqhFgbbKwnb9MLmUQDhG6' })
+  })
+})
+
 describe('getPlatformLabel', () => {
   it('returns correct labels for all platforms', () => {
     expect(getPlatformLabel('spotify')).toBe('Spotify')
@@ -86,16 +134,20 @@ describe('getPlatformLabel', () => {
     expect(getPlatformLabel('soundcloud')).toBe('SoundCloud')
     expect(getPlatformLabel('apple_music')).toBe('Apple Music')
     expect(getPlatformLabel('bandcamp')).toBe('Bandcamp')
+    expect(getPlatformLabel('deezer')).toBe('Deezer')
+    expect(getPlatformLabel('tidal')).toBe('Tidal')
   })
 })
 
 describe('getPlatformColor', () => {
-  it('returns correct colors for all platforms', () => {
+  it('returns correct colors for each platform', () => {
     expect(getPlatformColor('spotify')).toBe('#1DB954')
     expect(getPlatformColor('youtube')).toBe('#FF0000')
     expect(getPlatformColor('soundcloud')).toBe('#FF5500')
     expect(getPlatformColor('apple_music')).toBe('#FA243C')
     expect(getPlatformColor('bandcamp')).toBe('#1DA0C3')
+    expect(getPlatformColor('deezer')).toBe('#A238FF')
+    expect(getPlatformColor('tidal')).toBe('#000000')
   })
 })
 
@@ -107,10 +159,25 @@ describe('extractEmbedUrl', () => {
     )
   })
 
+  it('extracts Spotify embed from intl URL', () => {
+    const url =
+      'https://open.spotify.com/intl-en/track/6rqhFgbbKwnb9MLmUQDhG6'
+    expect(extractEmbedUrl(url, 'spotify')).toBe(
+      'https://open.spotify.com/embed/track/6rqhFgbbKwnb9MLmUQDhG6?theme=0'
+    )
+  })
+
   it('extracts Spotify embed URL from album link', () => {
     const url = 'https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy'
     expect(extractEmbedUrl(url, 'spotify')).toBe(
       'https://open.spotify.com/embed/album/4aawyAB9vmqN3uQ7FjRGTy?theme=0'
+    )
+  })
+
+  it('extracts Tidal embed URL from listen URL', () => {
+    const url = 'https://listen.tidal.com/track/251380832'
+    expect(extractEmbedUrl(url, 'tidal')).toBe(
+      'https://embed.tidal.com/tracks/251380832'
     )
   })
 
@@ -134,6 +201,12 @@ describe('extractEmbedUrl', () => {
     expect(extractEmbedUrl(url, 'apple_music')).toBe(
       'https://embed.music.apple.com/us/album/some-album/1234567890'
     )
+  })
+
+  it('returns null for Deezer (oEmbed only)', () => {
+    expect(
+      extractEmbedUrl('https://www.deezer.com/track/3135556', 'deezer')
+    ).toBeNull()
   })
 
   it('returns null for SoundCloud (oEmbed only)', () => {
@@ -166,5 +239,7 @@ describe('getEmbedHeight', () => {
     expect(getEmbedHeight('soundcloud')).toBe(166)
     expect(getEmbedHeight('apple_music')).toBe(150)
     expect(getEmbedHeight('bandcamp')).toBe(120)
+    expect(getEmbedHeight('deezer')).toBe(180)
+    expect(getEmbedHeight('tidal')).toBe(150)
   })
 })

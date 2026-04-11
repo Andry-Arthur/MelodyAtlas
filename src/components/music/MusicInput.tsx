@@ -33,7 +33,9 @@ export function MusicInput({
 
     const result = await resolveMusic(url.trim())
     if (!result) {
-      setError('Unsupported URL. Try YouTube, Spotify, SoundCloud, Apple Music, or Bandcamp.')
+      setError(
+        'Unsupported URL. Paste a link from Spotify, YouTube, Apple Music, SoundCloud, Bandcamp, Deezer, or Tidal.'
+      )
       setLoading(false)
       return
     }
@@ -155,7 +157,7 @@ export function MusicInput({
                   handlePasteLink()
                 }
               }}
-              placeholder="Paste a YouTube, SoundCloud, Apple Music, or Bandcamp link..."
+              placeholder="Paste a Spotify, YouTube, Apple Music, SoundCloud, Bandcamp, Deezer, or Tidal link..."
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white
                 placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             />
@@ -175,7 +177,7 @@ export function MusicInput({
             <p className="text-xs text-red-400">{error}</p>
           )}
           <p className="text-[10px] text-white/25">
-            Supports YouTube, Spotify, SoundCloud, Apple Music, and Bandcamp URLs
+            Spotify, YouTube, Apple Music, SoundCloud, Bandcamp, Deezer, and Tidal share links are supported.
           </p>
         </div>
       )}

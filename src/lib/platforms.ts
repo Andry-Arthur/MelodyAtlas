@@ -4,6 +4,8 @@ export type PlatformType =
   | 'soundcloud'
   | 'apple_music'
   | 'bandcamp'
+  | 'deezer'
+  | 'tidal'
 
 interface PlatformDef {
   type: PlatformType
@@ -17,7 +19,23 @@ const PLATFORMS: PlatformDef[] = [
     type: 'spotify',
     label: 'Spotify',
     color: '#1DB954',
-    patterns: [/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/],
+    patterns: [
+      /open\.spotify\.com\/(?:[^\s]+\/)*?(track|album|playlist)\/([a-zA-Z0-9]+)/,
+    ],
+  },
+  {
+    type: 'tidal',
+    label: 'Tidal',
+    color: '#000000',
+    patterns: [
+      /(?:listen\.)?tidal\.com\/(?:[\w/-]*\/)?(track|album)\/(\d+)/i,
+    ],
+  },
+  {
+    type: 'deezer',
+    label: 'Deezer',
+    color: '#A238FF',
+    patterns: [/deezer\.com\/(?:[\w-]+\/)*(track|album|playlist)\/(\d+)/i],
   },
   {
     type: 'youtube',
@@ -48,10 +66,67 @@ const PLATFORMS: PlatformDef[] = [
   },
 ]
 
+/** Robust Spotify open.spotify.com path parse (supports /intl-xx/track/id, query strings). */
+export function parseSpotifyFromUrl(url: string): {
+  kind: 'track' | 'album' | 'playlist'
+  id: string
+} | null {
+  try {
+    const u = new URL(url.trim())
+    if (u.hostname !== 'open.spotify.com') return null
+    const m = u.pathname.match(/\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
+    if (!m) return null
+    return { kind: m[1] as 'track' | 'album' | 'playlist', id: m[2] }
+  } catch {
+    return null
+  }
+}
+
+function parseTidalFromUrl(url: string): {
+  kind: 'track' | 'album'
+  id: string
+} | null {
+  try {
+    const u = new URL(url.trim())
+    if (!/(?:^|\.)tidal\.com$/i.test(u.hostname)) return null
+    const m = u.pathname.match(/\/(track|album)\/(\d+)/)
+    if (!m) return null
+    return { kind: m[1] as 'track' | 'album', id: m[2] }
+  } catch {
+    return null
+  }
+}
+
+function parseDeezerFromUrl(url: string): {
+  kind: 'track' | 'album' | 'playlist'
+  id: string
+} | null {
+  try {
+    const u = new URL(url.trim())
+    if (!u.hostname.includes('deezer.com')) return null
+    const m = u.pathname.match(/\/(track|album|playlist)\/(\d+)/)
+    if (!m) return null
+    return { kind: m[1] as 'track' | 'album' | 'playlist', id: m[2] }
+  } catch {
+    return null
+  }
+}
+
 export function detectPlatform(url: string): PlatformType | null {
+  const trimmed = url.trim()
+  if (parseSpotifyFromUrl(trimmed)) return 'spotify'
+  if (parseTidalFromUrl(trimmed)) return 'tidal'
+  if (parseDeezerFromUrl(trimmed)) return 'deezer'
+
   for (const platform of PLATFORMS) {
+    if (
+      platform.type === 'spotify' ||
+      platform.type === 'tidal' ||
+      platform.type === 'deezer'
+    )
+      continue
     for (const pattern of platform.patterns) {
-      if (pattern.test(url)) return platform.type
+      if (pattern.test(trimmed)) return platform.type
     }
   }
   return null
@@ -71,12 +146,18 @@ export function extractEmbedUrl(
 ): string | null {
   switch (platform) {
     case 'spotify': {
-      const match = url.match(
-        /open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/
-      )
-      if (!match) return null
-      return `https://open.spotify.com/embed/${match[1]}/${match[2]}?theme=0`
+      const parsed = parseSpotifyFromUrl(url)
+      if (!parsed) return null
+      return `https://open.spotify.com/embed/${parsed.kind}/${parsed.id}?theme=0`
     }
+    case 'tidal': {
+      const parsed = parseTidalFromUrl(url)
+      if (!parsed) return null
+      const segment = parsed.kind === 'track' ? 'tracks' : 'albums'
+      return `https://embed.tidal.com/${segment}/${parsed.id}`
+    }
+    case 'deezer':
+      return null
     case 'youtube': {
       let videoId: string | null = null
       const watchMatch = url.match(
@@ -98,9 +179,9 @@ export function extractEmbedUrl(
       return `https://embed.music.apple.com/${match[1]}/${match[2]}/${match[3]}`
     }
     case 'soundcloud':
-      return null // resolved via oEmbed
+      return null
     case 'bandcamp':
-      return null // resolved via oEmbed
+      return null
     default:
       return null
   }
@@ -118,6 +199,10 @@ export function getEmbedHeight(platform: PlatformType): number {
       return 150
     case 'bandcamp':
       return 120
+    case 'deezer':
+      return 180
+    case 'tidal':
+      return 150
     default:
       return 80
   }
@@ -141,6 +226,8 @@ export async function fetchOEmbedMetadata(
     oembedUrl = `https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`
   } else if (platform === 'bandcamp') {
     oembedUrl = `https://bandcamp.com/api/oembed?url=${encodeURIComponent(url)}&format=json`
+  } else if (platform === 'deezer') {
+    oembedUrl = `https://www.deezer.com/plugins/oembed?url=${encodeURIComponent(url)}&format=json`
   }
 
   if (!oembedUrl) return null
@@ -167,6 +254,36 @@ export async function fetchOEmbedMetadata(
   }
 }
 
+async function fetchSpotifyOEmbed(
+  trackUrl: string
+): Promise<OEmbedResult | null> {
+  const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(trackUrl)}`
+  try {
+    const response = await fetch(oembedUrl)
+    if (!response.ok) return null
+    const data = await response.json()
+
+    let embedUrl: string | null = null
+    const htmlStr: string = data.html ?? ''
+    const srcMatch = htmlStr.match(/src="([^"]+)"/)
+    if (srcMatch) embedUrl = srcMatch[1]
+
+    const fallback = extractEmbedUrl(trackUrl, 'spotify')
+    const title = (data.title as string) ?? 'Spotify'
+    const thumbnail = (data.thumbnail_url as string) ?? ''
+
+    return {
+      title,
+      artist: '',
+      thumbnail,
+      embedHtml: htmlStr,
+      embedUrl: embedUrl ?? fallback,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function resolveMusic(url: string): Promise<{
   platform: PlatformType
   embedUrl: string
@@ -174,11 +291,12 @@ export async function resolveMusic(url: string): Promise<{
   artist: string
   thumbnail: string
 } | null> {
-  const platform = detectPlatform(url)
+  const trimmed = url.trim()
+  const platform = detectPlatform(trimmed)
   if (!platform) return null
 
   if (platform === 'soundcloud' || platform === 'bandcamp') {
-    const meta = await fetchOEmbedMetadata(url, platform)
+    const meta = await fetchOEmbedMetadata(trimmed, platform)
     if (!meta || !meta.embedUrl) return null
     return {
       platform,
@@ -189,7 +307,53 @@ export async function resolveMusic(url: string): Promise<{
     }
   }
 
-  const embedUrl = extractEmbedUrl(url, platform)
+  if (platform === 'deezer') {
+    const meta = await fetchOEmbedMetadata(trimmed, 'deezer')
+    if (!meta || !meta.embedUrl) return null
+    return {
+      platform: 'deezer',
+      embedUrl: meta.embedUrl,
+      title: meta.title,
+      artist: meta.artist,
+      thumbnail: meta.thumbnail,
+    }
+  }
+
+  if (platform === 'spotify') {
+    const meta = await fetchSpotifyOEmbed(trimmed)
+    if (meta?.embedUrl) {
+      return {
+        platform: 'spotify',
+        embedUrl: meta.embedUrl,
+        title: meta.title,
+        artist: meta.artist,
+        thumbnail: meta.thumbnail,
+      }
+    }
+    const embedUrl = extractEmbedUrl(trimmed, 'spotify')
+    if (!embedUrl) return null
+    return {
+      platform: 'spotify',
+      embedUrl,
+      title: 'Spotify Track',
+      artist: '',
+      thumbnail: '',
+    }
+  }
+
+  if (platform === 'tidal') {
+    const embedUrl = extractEmbedUrl(trimmed, 'tidal')
+    if (!embedUrl) return null
+    return {
+      platform: 'tidal',
+      embedUrl,
+      title: 'Tidal',
+      artist: '',
+      thumbnail: '',
+    }
+  }
+
+  const embedUrl = extractEmbedUrl(trimmed, platform)
   if (!embedUrl) return null
 
   let title = 'Music'
@@ -200,8 +364,6 @@ export async function resolveMusic(url: string): Promise<{
     title = 'YouTube Video'
   } else if (platform === 'apple_music') {
     title = 'Apple Music'
-  } else if (platform === 'spotify') {
-    title = 'Spotify Track'
   }
 
   return { platform, embedUrl, title, artist, thumbnail }

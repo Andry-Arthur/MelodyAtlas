@@ -56,6 +56,29 @@ describe('fetchOEmbedMetadata', () => {
     expect(result?.embedUrl).toBe('https://bandcamp.com/embed/123')
   })
 
+  it('returns metadata for Deezer URLs', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          title: 'Deezer Song',
+          author_name: 'Deezer Artist',
+          thumbnail_url: 'https://dz.img/cover.jpg',
+          html: '<iframe src="https://widget.deezer.com/widget/dark/track/1"></iframe>',
+        }),
+    })
+
+    const result = await fetchOEmbedMetadata(
+      'https://www.deezer.com/track/3135556',
+      'deezer'
+    )
+
+    expect(result?.title).toBe('Deezer Song')
+    expect(result?.embedUrl).toBe(
+      'https://widget.deezer.com/widget/dark/track/1'
+    )
+  })
+
   it('returns null for non-oEmbed platforms', async () => {
     const result = await fetchOEmbedMetadata(
       'https://open.spotify.com/track/abc',
@@ -107,14 +130,44 @@ describe('fetchOEmbedMetadata', () => {
 })
 
 describe('resolveMusic', () => {
-  it('resolves Spotify URLs with embed info', async () => {
+  it('resolves Spotify URLs via oEmbed when available', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          title: 'Song Name',
+          thumbnail_url: 'https://i.scdn.co/image/ab67616d0000b273',
+          html: '<iframe src="https://open.spotify.com/embed/track/6rqhFgbbKwnb9MLmUQDhG6"></iframe>',
+        }),
+    })
+
     const result = await resolveMusic(
       'https://open.spotify.com/track/6rqhFgbbKwnb9MLmUQDhG6'
     )
 
     expect(result).toEqual({
       platform: 'spotify',
-      embedUrl: 'https://open.spotify.com/embed/track/6rqhFgbbKwnb9MLmUQDhG6?theme=0',
+      embedUrl: 'https://open.spotify.com/embed/track/6rqhFgbbKwnb9MLmUQDhG6',
+      title: 'Song Name',
+      artist: '',
+      thumbnail: 'https://i.scdn.co/image/ab67616d0000b273',
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('open.spotify.com/oembed')
+    )
+  })
+
+  it('falls back when Spotify oEmbed fails', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false })
+
+    const result = await resolveMusic(
+      'https://open.spotify.com/track/6rqhFgbbKwnb9MLmUQDhG6'
+    )
+
+    expect(result).toEqual({
+      platform: 'spotify',
+      embedUrl:
+        'https://open.spotify.com/embed/track/6rqhFgbbKwnb9MLmUQDhG6?theme=0',
       title: 'Spotify Track',
       artist: '',
       thumbnail: '',
@@ -170,12 +223,54 @@ describe('resolveMusic', () => {
     expect(result?.title).toBe('SC Track')
   })
 
+  it('resolves Deezer via oEmbed', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          title: 'DZ Title',
+          author_name: 'DZ Artist',
+          thumbnail_url: 'https://dz/cover.jpg',
+          html: '<iframe src="https://widget.deezer.com/widget/dark/track/99"></iframe>',
+        }),
+    })
+
+    const result = await resolveMusic('https://www.deezer.com/track/3135556')
+
+    expect(result?.platform).toBe('deezer')
+    expect(result?.embedUrl).toBe(
+      'https://widget.deezer.com/widget/dark/track/99'
+    )
+    expect(result?.title).toBe('DZ Title')
+  })
+
+  it('resolves Tidal with embed URL', async () => {
+    const result = await resolveMusic(
+      'https://listen.tidal.com/track/251380832'
+    )
+
+    expect(result).toEqual({
+      platform: 'tidal',
+      embedUrl: 'https://embed.tidal.com/tracks/251380832',
+      title: 'Tidal',
+      artist: '',
+      thumbnail: '',
+    })
+  })
+
   it('returns null for SoundCloud when oEmbed fails', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false })
 
     const result = await resolveMusic(
       'https://soundcloud.com/artist-name/track-name'
     )
+    expect(result).toBeNull()
+  })
+
+  it('returns null for Deezer when oEmbed fails', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false })
+
+    const result = await resolveMusic('https://www.deezer.com/track/3135556')
     expect(result).toBeNull()
   })
 
